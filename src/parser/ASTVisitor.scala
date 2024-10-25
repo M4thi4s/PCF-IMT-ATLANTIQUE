@@ -1,10 +1,10 @@
 package parser
-import scala.jdk.CollectionConverters._
 import ast.{AST, Op, Term}
-import Term.{BOp, Lit, IfZ, Var, Let, Fun, App, Fix, TList, Cons}
+import Term.{App, BOp, Cons, Fix, Fun, IfZ, Let, Lit, TList, TNil, Var}
 import parser.PCFParser
 
 import java.util
+import scala.jdk.CollectionConverters.*
 
 class ASTVisitor[AST] extends PCFBaseVisitor[AST] :
   override def visitLit(ctx: PCFParser.LitContext): AST =
@@ -65,7 +65,7 @@ class ASTVisitor[AST] extends PCFBaseVisitor[AST] :
     visit(ctx.term)
 
   override def visitNil(ctx: PCFParser.NilContext): AST =
-    TList(Nil).asInstanceOf[AST]
+    TNil().asInstanceOf[AST]
 
   override def visitList(ctx: PCFParser.ListContext): AST =
     var ANTLRTerms = ctx.term.asScala.toList

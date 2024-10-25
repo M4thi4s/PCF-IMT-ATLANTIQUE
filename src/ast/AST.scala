@@ -13,8 +13,9 @@ enum Term extends AST :
   case Fun(id: String, t: Term)
   case App(t1: Term, t2: Term)
   case Fix(id: String, t: Term)
+  case TNil()
   case TList(ts: List[Term])
-  case Cons(t1: Term, t2: Term)
+  case Cons(t: Term, ts: Term)
 
 enum Op :
   case PLUS, MINUS, TIMES, DIVIDE

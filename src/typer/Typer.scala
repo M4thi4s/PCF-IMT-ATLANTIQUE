@@ -1,8 +1,7 @@
 package typer
 
-import ast.Op.*
 import ast.Term
-import Term.*
+import Term.{TNil, *}
 import unify.TVar
 
 object Typer :
@@ -78,15 +77,17 @@ object Typer :
       else throw new TypeError(s"term $t with environment $e")
 /*      interp(t, e + (x -> IceCube(x, t, e)))
 */
+    case TNil() => LIST(TVar())
 
     case TList(ts) =>
       val As = ts.map(t => typer(t, e))
       val A = As.head
-      if As.forall(_ === A) then LIST(A)
+      if As.forall(a => a === A || a === typer(TNil(), e)) then LIST(A)
       else throw new TypeError(s"term $t with environment $e")
 
-    case Cons(t1, t2) =>
-      val A = typer(t1, e)
-      val L = typer(t2, e)
+    case Cons(t, ts) =>
+      val A = typer(t, e)
+      val L = typer(ts, e)
+      if L === typer(TNil(), e) then LIST(A) else
       if L === LIST(A) then L
       else throw new TypeError(s"term $t with environment $e")
