@@ -1,10 +1,11 @@
 package interp
 
-import ast.Term
+import ast.{ATerm, Op, Term}
 import Term.*
 import ast.Op.*
 import Value.*
 
+import scala.io.Source
 import scala.language.implicitConversions
 
 object Interp :
@@ -56,3 +57,48 @@ object Interp :
       val v = interp(t1, e)
       val VList(vs) = interp(t2, e) // interpreter t1 doit rendre une liste de valeurs
       VList(v :: vs)
+
+  // ATerm part (TP 2)
+  enum Code:
+    case Ins(ins: String)
+    case Seq(seq: List[Code])
+    case Test(code1: Code, code2: Code)
+
+  private def emit(term: ATerm): Code = term match
+    case ATerm.Lit(n) => Code.Ins(s"i32.const $n")
+    case ATerm.BOp(op, t1, t2) =>
+      val left = emit(t1)
+      val right = emit(t2)
+      val opCode = op match
+        case PLUS => "i32.add"
+        case MINUS => "i32.sub"
+        case TIMES => "i32.mul"
+        case DIVIDE => "i32.div_s"
+      Code.Seq(List(left, right, Code.Ins(opCode)))
+    case ATerm.IfZ(t1, t2, t3) =>
+      val test = emit(t1)
+      val thenBranch = emit(t2)
+      val elseBranch = emit(t3)
+      Code.Seq(List(test, Code.Ins("if (result i32)"), Code.Test(thenBranch, elseBranch), Code.Ins("end")))
+    case _ => throw new NotImplementedError(s"Code generation not implemented for $term")
+
+  private def spaces(depth: Int): String = (for i <- 0 until depth yield "  ").mkString
+
+  private def format(d: Int, code: Code): String = code match
+    case Code.Ins(s) => s"${spaces(d)}$s\n"
+    case Code.Seq(seq) => seq.map(format(d, _)).mkString
+    case Code.Test(code1, code2) =>
+      s"${spaces(d)}then\n${format(d + 1, code1)}${spaces(d)}else\n${format(d + 1, code2)}"
+
+  def prelude(): String =
+    val source = Source.fromFile("pcf/prelude.wat")
+    val contents = source.mkString
+    source.close()
+    contents
+
+  def gen(t: ATerm): String =
+    val preludeContent = prelude()
+    s"""$preludeContent
+       |(func (export "main") (result i32)
+       |  ${format(2, emit(t))}
+       |  return))""".stripMargin

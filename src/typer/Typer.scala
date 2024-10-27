@@ -8,6 +8,16 @@ import unify.TVar
 object Typer :
   type Env = Map[String, Type]
 
+  val env0: Env =
+    val a1 = TVar()
+    val a2 = TVar()
+    val a3 = TVar()
+    Map[String, Type](
+      "head" -> FUNCTION(LIST(a1), a1),
+      "tail" -> FUNCTION(LIST(a2), LIST(a2)),
+      "is_empty" -> FUNCTION(LIST(a3), INT),
+    )
+
   def typer(t: Term, e: Env): Type = t match
     case Lit(_) => INT
     case BOp(op, t1, t2) =>
