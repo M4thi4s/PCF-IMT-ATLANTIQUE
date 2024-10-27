@@ -1,11 +1,10 @@
 package interp
 
-import ast.{ATerm, Op, Term}
+import ast.Term
 import Term.*
 import ast.Op.*
 import Value.*
 
-import scala.io.Source
 import scala.language.implicitConversions
 
 object Interp :
@@ -50,9 +49,19 @@ object Interp :
     case Fix(x, t) =>
       interp(t, e + (x -> IceCube(x, t, e)))
 
+    case TNil() => VNil()
+    case TList(ts) => VList(ts.map(t => interp(t, e)))
+    case Cons(t, ts) =>
+      val v = interp(t, e)
+      val vs = interp(ts, e)
+      vs match
+        case VNil() => VList(List(v))
+        case VList(vs) => VList(v :: vs)
+        case _ => throw new InterpError(s"unexpected value $vs in $t")
+
     case TList(ts) =>
       VList(ts.map(t => interp(t, e)))
-    
+
     case Cons(t1, t2) =>
       val v = interp(t1, e)
       val VList(vs) = interp(t2, e) // interpreter t1 doit rendre une liste de valeurs
