@@ -1,10 +1,11 @@
 package interp
 
-import ast.Term
+import ast.{ATerm, Term}
 import Term.*
 import ast.Op.*
 import Value.*
 
+import scala.io.Source
 import scala.language.implicitConversions
 
 object Interp :
