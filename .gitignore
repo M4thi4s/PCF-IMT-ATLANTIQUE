@@ -1,5 +1,11 @@
-out/*
 out/
+gen/
+pcf/*.wasm
+
+src/parser/*.java
+!src/parser/ErrorListener.java
+src/parser/*.interp
+src/parser/*.tokens
 
 .idea/
 .vscode/
