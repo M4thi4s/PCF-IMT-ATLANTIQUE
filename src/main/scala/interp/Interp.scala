@@ -4,6 +4,7 @@ import main.scala.ast.{ATerm, Term}
 import Term.*
 import main.scala.ast.Op.*
 import Value.*
+import main.scala.interp.Interp.Code.Ins
 
 import scala.io.Source
 import scala.language.implicitConversions
@@ -87,9 +88,34 @@ object Interp :
       Code.Seq(List(left, right, Code.Ins(opCode)))
     case ATerm.IfZ(t1, t2, t3) =>
       val test = emit(t1)
-      val thenBranch = emit(t2)
-      val elseBranch = emit(t3)
+      // on inverse les branches then et else car par définition le if de wasm est faux si la dernière valeur est 0
+      val elseBranch = emit(t2)
+      val thenBranch = emit(t3)
       Code.Seq(List(test, Code.Ins("if (result i32)"), Code.Test(thenBranch, elseBranch), Code.Ins("end")))
+//    case ATerm.Var(id, idx) => Code.Ins(s"global.get $$$id")
+
+    case ATerm.Var(id, idx) =>
+      Code.Seq(List(Code.Ins(";; Var"),
+        Code.Ins(s"i32.const $idx"),
+        Code.Ins("global.get $ENV"),
+        Code.Ins("call $search")))
+    case ATerm.Let(id, t1, t2) =>
+      val value = emit(t1)
+      val body = emit(t2)
+      Code.Seq(List(Code.Ins(";; Let"), PushEnv, value, Extend, body, PopEnv))
+
+    case ATerm.Fun(id, t) =>
+      val body = emit(t)
+      val clos = MkClos(idx)
+      bodies = bodies :+ body
+      idx += 1
+      Code.Seq(List(Code.Ins(";; Fun"), clos))
+
+    case ATerm.App(t1, t2) =>
+      val fun = emit(t1)
+      val arg = emit(t2)
+      Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv))
+
     case ATerm.TNil() => Code.Ins("i32.const 0")
     case ATerm.TList(ts) =>
       val codes = ts.map(emit)
@@ -110,17 +136,78 @@ object Interp :
     case Code.Ins(s) => s"${spaces(d)}$s\n"
     case Code.Seq(seq) => seq.map(format(d, _)).mkString
     case Code.Test(code1, code2) =>
-      s"${spaces(d)}then\n${format(d + 1, code1)}${spaces(d)}else\n${format(d + 1, code2)}"
+      s"${format(d + 1, code1)}${spaces(d)}else\n${format(d + 1, code2)}"
 
-  def prelude(): String =
+  private def prelude(): String =
     val source = Source.fromFile("pcf/prelude.wat")
     val contents = source.mkString
     source.close()
     contents
 
-  def gen(t: ATerm): String =
-    val preludeContent = prelude()
-    s"""$preludeContent
-       |(func (export "main") (result i32)
-       |  ${format(2, emit(t))}
-       |  return))""".stripMargin
+  // push $ENV on the stack
+  val PushEnv: Code =
+    Code.Seq(List(Code.Ins(";; PushEnv"), Code.Ins("global.get $ENV")))
+
+  // pop $ENV from the stack
+  val PopEnv: Code =
+    Code.Seq(List(Code.Ins(";; PopEnv"),
+      Code.Ins("global.set $ACC"),
+      Code.Ins("global.set $ENV"),
+      Code.Ins("global.get $ACC")))
+
+  // retrieve value of variable with de Bruijn index idx
+  def Search(idx: Int): Code =
+    Code.Seq(List(Code.Ins(s"i32.const $idx"), Code.Ins("call $search")))
+
+  // extend the environment with the value on top of the stack using cons
+  val Extend: Code =
+    Code.Seq(List(Code.Ins(";; Extend"),
+      Code.Ins("global.get $ENV"),
+      Code.Ins("call $cons"),
+      Code.Ins("global.set $ENV")))
+
+  // build the closure of index idx
+  private def MkClos(idx: Int): Code =
+    Code.Seq(List(Code.Ins(";; MkClos"),
+      Code.Ins(s"i32.const $idx"),
+      Code.Ins("global.get $ENV"),
+      Code.Ins("call $pair")))
+
+  private val Apply: Code = Ins("call $apply")
+  private var idx = 0 // next index in the table of closure bodies
+  private var bodies: List[Code] = Nil // list of closure bodies
+
+  // generate table of function references
+  private def emitTable: String =
+    if bodies.isEmpty then ""
+    else
+      val table = bodies.indices.map(functionName).mkString(" ")
+      s"\n  (table funcref\n\t(elem\n\t  $table\n\t)\n  )\n"
+
+  // generate functions for closure bodies
+  private def emitFunctions: String =
+    bodies.zipWithIndex.map((body, i) => emitFunction(i, body)).mkString
+
+  private def emitFunction(i: Int, body: Code): String =
+    val name = functionName(i)
+    val code = format(2, body)
+    s"\n  (func $name (result i32)\n" +
+       s"$code" +
+       s"\treturn\n  )".stripMargin
+
+  private def functionName(i: Int) = "$closure" + i
+
+  def gen(term: ATerm): String =
+    val postlude = ")\n"
+//    val resetEnv = "\t(global.set $ACC (i32.const 0))\n\t(global.set $ENV (i32.const 0))\n"
+    idx = 0
+    bodies = Nil
+    val body =
+      "(func (export \"main\") (result i32)\n" +
+//        resetEnv +
+        format(2, emit(term)) +
+        "\treturn\n  )"
+    // return
+    s"""${prelude()}$emitTable$emitFunctions
+       |  $body
+       |$postlude""".stripMargin

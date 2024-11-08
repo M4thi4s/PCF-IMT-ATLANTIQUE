@@ -1,12 +1,15 @@
 out/
 target/
 gen/
-pcf/*.wasm
+*.wasm
 
 src/main/scala/parser/*.java
 !src/main/scala/parser/ErrorListener.java
 src/main/scala/parser/*.interp
 src/main/scala/parser/*.tokens
+
+src/it/scala/test/*.txt
+src/it/scala/test/*.wat
 
 .idea/
 .vscode/

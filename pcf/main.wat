@@ -110,12 +110,31 @@
     (return)
   )
 
-(func (export "main") (result i32)
-      i32.const 1
-    i32.const 1
-    i32.const 0
-    
-    call $cons
-    call $cons
+  (table funcref
+	(elem
+	  $closure0
+	)
+  )
 
-  return))
+  (func $closure0 (result i32)
+    i32.const 11
+	return
+  )
+  (func (export "main") (result i32)
+    ;; App
+    ;; PushEnv
+    global.get $ENV
+    i32.const 2
+    ;; Fun
+    ;; MkClos
+    i32.const 0
+    global.get $ENV
+    call $pair
+    (call $apply)
+    ;; PopEnv
+    global.set $ACC
+    global.set $ENV
+    global.get $ACC
+	return
+  )
+)

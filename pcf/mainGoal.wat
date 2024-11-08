@@ -6,6 +6,13 @@
   (global $LIST i32 (i32.const 1))       ;; LIST tag (for non empty lists)
   (global $NIL  i32 (i32.const 0))       ;; NIL tag (for empty lists)
 
+  ;; table of closure bodies
+  (table funcref
+    (elem
+      $eleven ;; index 0
+    )
+  )
+
   ;; stores a pair on the heap and returns a pointer to the pair
   ;; final state (initially result = HEAP):
   ;;             ----------
@@ -97,3 +104,60 @@
     ;; retrieve index of closure body and executes the body
     (call_indirect (result i32) (i32.load (local.get $C)))
   )
+  ;; for testing purposes
+  (func $eleven (result i32)
+    (i32.const 11)
+    (return)
+  )
+  (table funcref
+    (elem
+      $closure0 $closure1
+    )
+  )
+  (func $closure0 (result i32)
+    ;; Var
+    (i32.const 1)
+    (global.get $ENV)
+    (call $search)
+    ;; Var
+    (i32.const 0)
+    (global.get $ENV)
+    (call $search)
+    i32.add
+    return)
+  (func $closure1 (result i32)
+    ;; Fun
+    ;; MkClos
+    (i32.const 0)
+    (global.get $ENV)
+    (call $pair)
+    return
+  )
+  ;; (fun x -> fun y -> x + y) 5 50
+  (func (export "main") (result i32)
+    ;; App
+    ;; PushEnv
+    global.get $ENV
+    i32.const 50
+    ;; App
+    ;; PushEnv
+    global.get $ENV
+    i32.const 5
+    ;; Fun
+    ;; MkClos
+    (i32.const 1)
+    (global.get $ENV)
+    (call $pair)
+    (call $apply)
+    ;; PopEnv
+    (global.set $ACC)
+    (global.set $ENV)
+    (global.get $ACC)
+    (call $apply)
+    ;; PopEnv
+    (global.set $ACC)
+    (global.set $ENV)
+    (global.get $ACC)
+    return
+  )
+)
