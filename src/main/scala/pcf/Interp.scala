@@ -1,12 +1,14 @@
-package pcf
+package main.scala.pcf
+
+import main.scala
+import main.scala.ast.Term
+import main.scala.interp.Interp.interp
+import main.scala.interp.{Interp, Value}
+import main.scala.parser.{ASTVisitor, ErrorListener, PCFParser, ReportingPCFLexer, SyntaxError}
+import main.scala.typer.{Type, Typer}
+import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
 
 import java.io.{FileInputStream, InputStream}
-import ast.Term
-import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
-import parser.{ReportingPCFLexer, PCFParser, ErrorListener, Error, SyntaxError, ASTVisitor}
-import interp.Value
-import typer.Type
-import interp.Interp.interp
 
 object Interp :
   def main(args: Array[String]): Unit =
@@ -25,14 +27,14 @@ object Interp :
     parser.addErrorListener(new ErrorListener())
     val tree = parser.term()
     if (verbose) println(s"ANTLR Parse Tree: ${tree.toStringTree(parser)}")
-    if ! Error.flag then
+    if ! scala.parser.Error.flag then
       val visitor = new ASTVisitor
       val term = visitor.visit(tree).asInstanceOf[Term]
       if (verbose) println(s"AST: $term")
-      val a = typer.Typer.typer(term, Map[String, Type]())
+      val a = Typer.typer(term, Map[String, Type]())
       val result = interp(term, Map())
       (result, a)
-    else throw new SyntaxError(Error.msg)
+    else throw new SyntaxError(scala.parser.Error.msg)
 
 
 

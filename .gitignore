@@ -1,11 +1,13 @@
 out/
+target/
 gen/
 pcf/*.wasm
 
-src/parser/*.java
-!src/parser/ErrorListener.java
-src/parser/*.interp
-src/parser/*.tokens
+src/main/scala/parser/*.java
+!src/main/scala/parser/ErrorListener.java
+src/main/scala/parser/*.interp
+src/main/scala/parser/*.tokens
 
 .idea/
 .vscode/
+.bsp/

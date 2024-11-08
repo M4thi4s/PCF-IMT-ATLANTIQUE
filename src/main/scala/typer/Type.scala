@@ -1,4 +1,4 @@
-package typer
+package main.scala.typer
 
 import unify.{Atom, HTerm, Structure, TVar}
 

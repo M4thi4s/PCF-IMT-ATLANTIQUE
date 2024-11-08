@@ -1,7 +1,7 @@
-package typer
+package main.scala.typer
 
-import ast.Term
-import Term.{TNil, *}
+import main.scala.ast.Term
+import Term.*
 import unify.TVar
 
 object Typer :

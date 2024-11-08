@@ -1,7 +1,7 @@
-package interp
+package main.scala.interp
 
-import ast.Term
-import interp.Interp.Env
+import Interp.Env
+import main.scala.ast.Term
 
 enum Value :
   case IntVal(i: Int)

@@ -1,8 +1,8 @@
-package interp
+package main.scala.interp
 
-import ast.{ATerm, Term}
+import main.scala.ast.{ATerm, Term}
 import Term.*
-import ast.Op.*
+import main.scala.ast.Op.*
 import Value.*
 
 import scala.io.Source
@@ -90,6 +90,18 @@ object Interp :
       val thenBranch = emit(t2)
       val elseBranch = emit(t3)
       Code.Seq(List(test, Code.Ins("if (result i32)"), Code.Test(thenBranch, elseBranch), Code.Ins("end")))
+    case ATerm.TNil() => Code.Ins("i32.const 0")
+    case ATerm.TList(ts) =>
+      val codes = ts.map(emit)
+      val init = Code.Ins("i32.const 0")
+      val cons = Code.Ins("")
+      val seq = codes.foldRight(cons)((code, acc) => Code.Seq(List(code, acc)))
+      Code.Seq(List(init, seq))
+    case ATerm.Cons(t1, t2) =>
+      val head = emit(t1)
+      val tail = emit(t2)
+      val cons = Code.Ins("call $cons")
+      Code.Seq(List(head, tail, cons))
     case _ => throw new NotImplementedError(s"Code generation not implemented for $term")
 
   private def spaces(depth: Int): String = (for i <- 0 until depth yield "  ").mkString

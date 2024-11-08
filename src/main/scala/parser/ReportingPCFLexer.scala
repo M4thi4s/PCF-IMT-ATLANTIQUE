@@ -1,4 +1,4 @@
-package parser
+package main.scala.parser
 
 import org.antlr.v4.runtime.{CharStream, LexerNoViableAltException}
 

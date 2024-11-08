@@ -1,9 +1,6 @@
-package ast
+package main.scala.ast
 
 trait AST
-
-import ast.Op.{DIVIDE, MINUS, PLUS, TIMES}
-
 
 enum ATerm extends AST:
   case Lit(n: Int)
@@ -15,6 +12,7 @@ enum ATerm extends AST:
   case App(t1: ATerm, t2: ATerm)
   case Fix(id: String, t: ATerm)
   case FixFun(id: String, t: ATerm)
+  case TNil()
   case TList(ts: List[ATerm])
   case Cons(t1: ATerm, t2: ATerm)
 
@@ -40,6 +38,7 @@ enum Term extends AST :
     case Fun(id, t) => ATerm.Fun(id, t.annotate(id :: e))
     case App(t1, t2) => ATerm.App(t1.annotate(e), t2.annotate(e))
     case Fix(id, t) => ATerm.Fix(id, t.annotate(id :: e))
+    case TNil() => ATerm.TList(Nil)
     case TList(ts) => ATerm.TList(ts.map(_.annotate(e)))
     case Cons(t1, t2) => ATerm.Cons(t1.annotate(e), t2.annotate(e))
 

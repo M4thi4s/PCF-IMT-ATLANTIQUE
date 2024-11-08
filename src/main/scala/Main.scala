@@ -1,13 +1,14 @@
-package pcf
+package main.scala
 
-import java.io.{FileInputStream, FileWriter}
-import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
-import parser.{ASTVisitor, Error, ErrorListener, PCFParser, ReportingPCFLexer, SyntaxError}
 import ast.Term
 import interp.Interp.gen
 import interp.Value
 import interp.Value.BuiltIn
+import org.antlr.v4.runtime.{ANTLRInputStream, CommonTokenStream}
+import parser.{ASTVisitor, Error, ErrorListener, PCFParser, ReportingPCFLexer, SyntaxError}
 import typer.{Type, Typer}
+
+import java.io.{FileInputStream, FileWriter}
 
 object Main :
   def main(args: Array[String]): Unit =
