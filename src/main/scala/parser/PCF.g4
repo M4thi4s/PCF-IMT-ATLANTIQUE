@@ -10,6 +10,7 @@ term : LIT                                   # Lit
      | 'ifz' term 'then' term 'else' term    # IfZ
      | 'let' ID '=' term 'in' term           # Let
      | 'fun' ID '->' term                    # Fun
+     | 'fixfun' ID ID '->' term              # FixFun
      | 'fix' ID term                         # Fix
      | '(' term ')'                          # Par
      | '[]'                                  # Nil

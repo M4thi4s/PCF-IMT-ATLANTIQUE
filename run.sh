@@ -8,4 +8,4 @@ echo "(fun x -> 11) 2" > pcf/main.pcf;
 sbt "run pcf/main.pcf";
 wat2wasm pcf/main.wat -o pcf/main.wasm;
 wasm-interp pcf/main.wasm --run-all-exports;
-#rm pcf/main.pcf pcf/mainGoal.wat pcf/main.wasm;
+rm pcf/main.pcf pcf/main.wat pcf/main.wasm;

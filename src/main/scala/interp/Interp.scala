@@ -4,10 +4,15 @@ import main.scala.ast.{ATerm, Term}
 import Term.*
 import main.scala.ast.Op.*
 import Value.*
-import main.scala.interp.Interp.Code.Ins
 
 import scala.io.Source
 import scala.language.implicitConversions
+
+// ATerm part (TP 2)
+enum Code:
+  case Ins(ins: String)
+  case Seq(seq: List[Code])
+  case Test(code1: Code, code2: Code)
 
 object Interp :
   type Env = Map[String, Value | IceCube]
@@ -61,22 +66,44 @@ object Interp :
         case VList(vs) => VList(v :: vs)
         case _ => throw new InterpError(s"unexpected value $vs in $t")
 
-    case TList(ts) =>
-      VList(ts.map(t => interp(t, e)))
+  // Variables
+  private var idx = 0 // next index in the table of closure bodies
+  private var bodies: List[Code] = Nil // list of closure bodies
 
-    case Cons(t1, t2) =>
-      val v = interp(t1, e)
-      val VList(vs) = interp(t2, e) // interpreter t1 doit rendre une liste de valeurs
-      VList(v :: vs)
+  // push $ENV on the stack
+  private val PushEnv: Code =
+    Code.Seq(List(Code.Ins(";; PushEnv"), Code.Ins("global.get $ENV")))
 
-  // ATerm part (TP 2)
-  enum Code:
-    case Ins(ins: String)
-    case Seq(seq: List[Code])
-    case Test(code1: Code, code2: Code)
+  // pop $ENV from the stack
+  private val PopEnv: Code =
+    Code.Seq(List(Code.Ins(";; PopEnv"),
+      Code.Ins("global.set $ACC"),
+      Code.Ins("global.set $ENV"),
+      Code.Ins("global.get $ACC")))
+
+  // retrieve value of variable with de Bruijn index idx
+  private def Search(idx: Int): Code =
+    Code.Seq(List(Code.Ins(s"i32.const $idx"), Code.Ins("(global.get $ENV)"), Code.Ins("call $search")))
+
+  // extend the environment with the value on top of the stack using cons
+  private val Extend: Code =
+    Code.Seq(List(Code.Ins(";; Extend"),
+      Code.Ins("global.get $ENV"),
+      Code.Ins("call $cons"),
+      Code.Ins("global.set $ENV")))
+
+  // build the closure of index idx
+  private def MkClos(idx: Int): Code =
+    Code.Seq(List(Code.Ins(";; MkClos"),
+      Code.Ins(s"i32.const $idx"),
+      Code.Ins("global.get $ENV"),
+      Code.Ins("call $pair")))
+
+  private val Apply: Code = Code.Ins("call $apply")
 
   private def emit(term: ATerm): Code = term match
     case ATerm.Lit(n) => Code.Ins(s"i32.const $n")
+
     case ATerm.BOp(op, t1, t2) =>
       val left = emit(t1)
       val right = emit(t2)
@@ -86,19 +113,18 @@ object Interp :
         case TIMES => "i32.mul"
         case DIVIDE => "i32.div_s"
       Code.Seq(List(left, right, Code.Ins(opCode)))
+
     case ATerm.IfZ(t1, t2, t3) =>
       val test = emit(t1)
       // on inverse les branches then et else car par définition le if de wasm est faux si la dernière valeur est 0
       val elseBranch = emit(t2)
       val thenBranch = emit(t3)
       Code.Seq(List(test, Code.Ins("if (result i32)"), Code.Test(thenBranch, elseBranch), Code.Ins("end")))
-//    case ATerm.Var(id, idx) => Code.Ins(s"global.get $$$id")
 
     case ATerm.Var(id, idx) =>
       Code.Seq(List(Code.Ins(";; Var"),
-        Code.Ins(s"i32.const $idx"),
-        Code.Ins("global.get $ENV"),
-        Code.Ins("call $search")))
+        Search(idx)))
+
     case ATerm.Let(id, t1, t2) =>
       val value = emit(t1)
       val body = emit(t2)
@@ -111,24 +137,43 @@ object Interp :
       idx += 1
       Code.Seq(List(Code.Ins(";; Fun"), clos))
 
+    case ATerm.FixFun(id, t) =>
+      val body = emit(t)
+      val clos = MkClos(idx)
+      bodies = bodies :+ body
+      idx += 1
+      Code.Seq(List(Code.Ins(";; FixFun"), clos))
+      
+    case ATerm.Fix(id, t) =>
+      val body = emit(t)
+      val clos = MkClos(idx)
+      bodies = bodies :+ body
+      idx += 1
+      Code.Seq(List(Code.Ins(";; Fix"), clos))
+
     case ATerm.App(t1, t2) =>
       val fun = emit(t1)
       val arg = emit(t2)
       Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv))
 
     case ATerm.TNil() => Code.Ins("i32.const 0")
+
+    // FIXME : pas sûr
     case ATerm.TList(ts) =>
       val codes = ts.map(emit)
       val init = Code.Ins("i32.const 0")
       val cons = Code.Ins("")
       val seq = codes.foldRight(cons)((code, acc) => Code.Seq(List(code, acc)))
       Code.Seq(List(init, seq))
+
     case ATerm.Cons(t1, t2) =>
       val head = emit(t1)
       val tail = emit(t2)
       val cons = Code.Ins("call $cons")
       Code.Seq(List(head, tail, cons))
     case _ => throw new NotImplementedError(s"Code generation not implemented for $term")
+
+  /** Text generation */
 
   private def spaces(depth: Int): String = (for i <- 0 until depth yield "  ").mkString
 
@@ -144,45 +189,10 @@ object Interp :
     source.close()
     contents
 
-  // push $ENV on the stack
-  val PushEnv: Code =
-    Code.Seq(List(Code.Ins(";; PushEnv"), Code.Ins("global.get $ENV")))
-
-  // pop $ENV from the stack
-  val PopEnv: Code =
-    Code.Seq(List(Code.Ins(";; PopEnv"),
-      Code.Ins("global.set $ACC"),
-      Code.Ins("global.set $ENV"),
-      Code.Ins("global.get $ACC")))
-
-  // retrieve value of variable with de Bruijn index idx
-  def Search(idx: Int): Code =
-    Code.Seq(List(Code.Ins(s"i32.const $idx"), Code.Ins("call $search")))
-
-  // extend the environment with the value on top of the stack using cons
-  val Extend: Code =
-    Code.Seq(List(Code.Ins(";; Extend"),
-      Code.Ins("global.get $ENV"),
-      Code.Ins("call $cons"),
-      Code.Ins("global.set $ENV")))
-
-  // build the closure of index idx
-  private def MkClos(idx: Int): Code =
-    Code.Seq(List(Code.Ins(";; MkClos"),
-      Code.Ins(s"i32.const $idx"),
-      Code.Ins("global.get $ENV"),
-      Code.Ins("call $pair")))
-
-  private val Apply: Code = Ins("call $apply")
-  private var idx = 0 // next index in the table of closure bodies
-  private var bodies: List[Code] = Nil // list of closure bodies
-
   // generate table of function references
   private def emitTable: String =
-    if bodies.isEmpty then ""
-    else
-      val table = bodies.indices.map(functionName).mkString(" ")
-      s"\n  (table funcref\n\t(elem\n\t  $table\n\t)\n  )\n"
+    val table = bodies.indices.map(functionName).mkString(" ")
+    s"\n  (table funcref\n\t(elem\n\t  $table\n\t)\n  )\n"
 
   // generate functions for closure bodies
   private def emitFunctions: String =
@@ -199,12 +209,10 @@ object Interp :
 
   def gen(term: ATerm): String =
     val postlude = ")\n"
-//    val resetEnv = "\t(global.set $ACC (i32.const 0))\n\t(global.set $ENV (i32.const 0))\n"
     idx = 0
     bodies = Nil
     val body =
       "(func (export \"main\") (result i32)\n" +
-//        resetEnv +
         format(2, emit(term)) +
         "\treturn\n  )"
     // return
