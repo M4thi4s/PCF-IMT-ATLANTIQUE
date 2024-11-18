@@ -46,7 +46,7 @@ object TestInterp extends App {
     test("PCF8")
 
     private def test(filename: String): Unit =
-        val dir = "testInterp/"
+        val dir = "src/it/scala/testInterp/"
         val args = Array(dir + filename + ".pcf", "-v")
         println(s"**********  ${args(0)}")
         try {

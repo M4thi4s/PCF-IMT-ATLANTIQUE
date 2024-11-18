@@ -4,7 +4,7 @@ trait TestGreen {
   val verbose : Boolean
   def report(): Unit
   def test(verbose: Boolean, filename: String, message: String, expectation: Option[Int]): Unit
-  def test(): Unit = {
+  def testGreen(): Unit = {
     test(verbose, "src/it/scala/test/green0.pcf", "number", Option(0))
     test(verbose, "src/it/scala/test/green1.pcf", "number", Option(42))
     test(verbose, "src/it/scala/test/green2.pcf", "arithmetic (-)", Option(-1))

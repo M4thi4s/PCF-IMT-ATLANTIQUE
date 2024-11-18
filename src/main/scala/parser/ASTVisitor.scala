@@ -48,19 +48,27 @@ class ASTVisitor[AST] extends PCFBaseVisitor[AST] :
         visit(ANTLRTerm).asInstanceOf[Term]
     Fun(id, term).asInstanceOf[AST]
 
-  override def visitApp(ctx: AppContext): AST =
-    val ANTLRTerms = ctx.term.asScala.toList
-    val List(term1, term2) =
-      for (ANTLRTerm <- ANTLRTerms) yield
-        visit(ANTLRTerm).asInstanceOf[Term]
-    App(term1, term2).asInstanceOf[AST]
-
   override def visitFix(ctx: FixContext): AST =
     val id = ctx.ID.getText
     val ANTLRTerm = ctx.term
     val term =
       visit(ANTLRTerm).asInstanceOf[Term]
     Fix(id, term).asInstanceOf[AST]
+
+  override def visitFixFun(ctx: FixFunContext): AST =
+    val id = ctx.ID(0).getText
+    val f = ctx.ID(1).getText
+    val ANTLRTerm = ctx.term
+    val term =
+      visit(ANTLRTerm).asInstanceOf[Term]
+    Fix(id, Fun(f, term)).asInstanceOf[AST]
+
+  override def visitApp(ctx: AppContext): AST =
+    val ANTLRTerms = ctx.term.asScala.toList
+    val List(term1, term2) =
+      for (ANTLRTerm <- ANTLRTerms) yield
+        visit(ANTLRTerm).asInstanceOf[Term]
+    App(term1, term2).asInstanceOf[AST]
 
   override def visitPar(ctx: ParContext): AST =
     visit(ctx.term)
@@ -69,7 +77,7 @@ class ASTVisitor[AST] extends PCFBaseVisitor[AST] :
     TNil().asInstanceOf[AST]
 
   override def visitList(ctx: ListContext): AST =
-    var ANTLRTerms = ctx.term.asScala.toList
+    val ANTLRTerms = ctx.term.asScala.toList
     val terms = for (ANTLRTerm <- ANTLRTerms) yield
       visit(ANTLRTerm).asInstanceOf[Term]
     TList(terms).asInstanceOf[AST]

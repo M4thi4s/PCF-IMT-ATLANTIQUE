@@ -9,7 +9,6 @@ enum ATerm extends AST:
   case Var(id: String, idx: Int)
   case Let(id: String, t1: ATerm, t2: ATerm)
   case Fun(id: String, t: ATerm)
-  case FixFun(id: String, t: ATerm)
   case App(t1: ATerm, t2: ATerm)
   case Fix(id: String, t: ATerm)
   case TNil()

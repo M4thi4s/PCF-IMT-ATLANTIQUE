@@ -46,15 +46,18 @@ object Interp :
       interp(t2, e1)
     case Fun(x, t) =>
       Closure(x, t, e)
+    case Fix(x, t) =>
+      interp(t, e + (x -> IceCube(x, t, e)))
     case App(t1, t2) =>
       val v1 = interp(t1, e)
       v1 match
         case Closure(id, t0, e0) =>
           val v2 = interp(t2, e)
-          interp(t0, e0 + (id -> v2))
+          v2 match
+            case VList(vs) =>
+              vs.foldLeft(v2)((acc, v) => interp(t0, e0 + (id -> v)))
+            case _ => interp(t0, e0 + (id -> v2))
         case _ => throw new InterpError(s"unexpected function $v1 in $t")
-    case Fix(x, t) =>
-      interp(t, e + (x -> IceCube(x, t, e)))
 
     case TNil() => VNil()
     case TList(ts) => VList(ts.map(t => interp(t, e)))
@@ -137,34 +140,39 @@ object Interp :
       idx += 1
       Code.Seq(List(Code.Ins(";; Fun"), clos))
 
-    case ATerm.FixFun(id, t) =>
-      val body = emit(t)
-      val clos = MkClos(idx)
-      bodies = bodies :+ body
-      idx += 1
-      Code.Seq(List(Code.Ins(";; FixFun"), clos))
-      
     case ATerm.Fix(id, t) =>
-      val body = emit(t)
-      val clos = MkClos(idx)
-      bodies = bodies :+ body
-      idx += 1
-      Code.Seq(List(Code.Ins(";; Fix"), clos))
+      val idx = this.idx
+      val c = emit(t)
+      Code.Seq(List(Code.Ins(";; Fix"), MkClos(idx)))
 
     case ATerm.App(t1, t2) =>
       val fun = emit(t1)
-      val arg = emit(t2)
-      Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv))
+      t2 match
+        case ATerm.Cons(t1, t2) =>
+          val head = emit(t1)
+          val tail = emit(ATerm.App(t1, t2))
+          val args = List(head, tail)
+          val apps = args.map(arg => Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv, Code.Ins(""))))
+          Code.Seq(apps)
+        case ATerm.TList(ts) =>
+          val args = ts.map(emit)
+          val apps = args.map(arg => Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv, Code.Ins(""))))
+          Code.Seq(apps)
+        case _ =>
+          val arg = emit(t2)
+          Code.Seq(List(Code.Ins(";; App"), PushEnv, arg, fun, Apply, PopEnv))
 
     case ATerm.TNil() => Code.Ins("i32.const 0")
 
-    // FIXME : pas sûr
     case ATerm.TList(ts) =>
       val codes = ts.map(emit)
-      val init = Code.Ins("i32.const 0")
-      val cons = Code.Ins("")
-      val seq = codes.foldRight(cons)((code, acc) => Code.Seq(List(code, acc)))
-      Code.Seq(List(init, seq))
+      if codes.isEmpty then
+        Code.Ins("i32.const 0")
+      else
+        val init = Code.Ins("i32.const 0")
+        val cons = Code.Ins("call $cons")
+        val seq = codes.map(code => Code.Seq(List(code, cons))).prepended(init)
+        Code.Seq(seq)
 
     case ATerm.Cons(t1, t2) =>
       val head = emit(t1)
