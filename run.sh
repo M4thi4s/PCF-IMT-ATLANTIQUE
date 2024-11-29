@@ -3,7 +3,9 @@ if [ ! -d "out" ]; then
 fi
 sbt clean compile;
 
-echo "(fun x -> 11) 2" > pcf/main.pcf;
+echo "let i = (fun x -> (x + 1)) in (1 : 2 : 3 : [])" > pcf/main.pcf;
+#echo "let i = (fun x -> (x + 1)) in [1, 2, 3]" > pcf/main.pcf;
+#echo "(2 : 3 : [])" > pcf/main.pcf;
 
 sbt "run pcf/main.pcf";
 wat2wasm pcf/main.wat -o pcf/main.wasm;
